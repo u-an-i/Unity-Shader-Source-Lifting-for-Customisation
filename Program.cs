@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 
 
 static void help()
@@ -82,20 +82,17 @@ int countIssues = 0;
 int countCopies = 0;
 int countEditor = 0;
 
-FileInfo[] files = dir.GetFiles("*.shader", SearchOption.AllDirectories);
-if(files.Length > 0)
+void mod(FileInfo[] files, Func<string, string> modification)
 {
-    foreach(FileInfo file in files)
+    foreach (FileInfo file in files)
     {
-        if(file.FullName.Contains(Path.DirectorySeparatorChar + "EditorDefaultResources" + Path.DirectorySeparatorChar))
+        if (file.FullName.Contains(Path.DirectorySeparatorChar + "EditorDefaultResources" + Path.DirectorySeparatorChar))
         {
             ++countEditor;
             continue;
         }
         string content = File.ReadAllText(file.FullName);
-        content = Regex.Replace(content, "(Shader )\"([^\"]+)\"", "$1\"" + referenceName + "/$2\"");
-        content = Regex.Replace(content, "(Fallback )\"([^\"]+)\"", "$1\"" + referenceName + "/$2\"");
-        content = Regex.Replace(content, "(#include )\"([^\"]+.((cg|glsl)inc|hlsl))\"", "$1\"../" + referenceName + "/$2\"");
+        content = modification(content);
         string dirOut = output.FullName + "/" + referenceName;
         Directory.CreateDirectory(dirOut);
         try
@@ -110,27 +107,23 @@ if(files.Length > 0)
     }
 }
 
+FileInfo[] files = dir.GetFiles("*.shader", SearchOption.AllDirectories);
+mod(files, (string content) => {
+    content = Regex.Replace(content, "(Shader )\"([^\"]+)\"", "$1\"" + referenceName + "/$2\"");
+    content = Regex.Replace(content, "(Fallback )\"([^\"]+)\"", "$1\"" + referenceName + "/$2\"");
+    content = Regex.Replace(content, "(UsePass )\"([^\"]+)\"", "$1\"" + referenceName + "/$2\"");
+    content = Regex.Replace(content, "(Dependency [^=]+= )\"([^\"]+)\"", "$1\"" + referenceName + "/$2\"");
+    content = Regex.Replace(content, "(#include )\"([^\"]+.((cg|glsl)inc|hlsl))\"", "$1\"../" + referenceName + "/$2\"");
+    return content;
+});
+
 files = dir.GetFiles("*.cginc", SearchOption.AllDirectories);
 files = [.. files, .. dir.GetFiles("*.glslinc", SearchOption.AllDirectories)];
-if (files.Length > 0)
-{
-    foreach (FileInfo file in files)
-    {
-        string content = File.ReadAllText(file.FullName);
-        content = Regex.Replace(content, "(#include )\"([^\"]+.((cg|glsl)inc|hlsl))\"", "$1\"../" + referenceName + "/$2\"");
-        string dirOut = output.FullName + "/" + referenceName;
-        Directory.CreateDirectory(dirOut);
-        try
-        {
-            File.WriteAllText(dirOut + "/" + file.Name, content);
-        }
-        catch
-        {
-            ++countIssues;
-        }
-        ++countCopies;
-    }
-}
+files = [.. files, .. dir.GetFiles("*.hlsl", SearchOption.AllDirectories)];
+mod(files, (string content) => {
+    content = Regex.Replace(content, "(#include )\"([^\"]+.((cg|glsl)inc|hlsl))\"", "$1\"../" + referenceName + "/$2\"");
+    return content;
+});
 
 Console.WriteLine(countIssues + " issues occured creating " + countCopies + " copies. Skipped " + countEditor + " Editor files.");
 
