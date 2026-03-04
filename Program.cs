@@ -138,38 +138,44 @@ void modRecursively(FileInfo file)
         alreadyModdedFiles[file.FullName] = true;
         List<FileInfo> files = [];
         string content = File.ReadAllText(file.FullName);
-        Match match1 = Regex.Match(content, "(?:#include )\"([^\"]+.((cg|glsl)inc|hlsl))\"");
-        if (match1.Success)
+        MatchCollection matches1 = Regex.Matches(content, "(?:#include )\"([^\"]+.((cg|glsl)inc|hlsl))\"");
+        foreach (Match match1 in matches1)
         {
-            FileInfo file2 = new("none");
-            try
+            if (match1.Success)
             {
-                file2 = dir.GetFiles(match1.Groups[1].Value, SearchOption.AllDirectories)[0];
+                FileInfo file2 = new("none");
+                try
+                {
+                    file2 = dir.GetFiles(match1.Groups[1].Value, SearchOption.AllDirectories)[0];
+                }
+                catch
+                { }
+                if (file2.Name != "none")
+                    files.Add(file2);
             }
-            catch
-            { }
-            if (file2.Name != "none")
-                files.Add(file2);
         }
         if (file.Extension.ToLower() == ".shader")
         {
-            foreach (Match match2 in new Match[]{
-                Regex.Match(content, "(?:Fall(?:B|b)ack )\"([^\"]+)\""),
-                Regex.Match(content, "(?:UsePass )\"([^\"]+)\""),
-                Regex.Match(content, "(?:Dependency [^=]+= )\"([^\"]+)\"")
+            foreach (MatchCollection matches2 in new MatchCollection[]{
+                Regex.Matches(content, "(?:Fall(?:B|b)ack )\"([^\"]+)\""),
+                Regex.Matches(content, "(?:UsePass )\"([^\"]+)\""),
+                Regex.Matches(content, "(?:Dependency [^=]+= )\"([^\"]+)\"")
             })
             {
-                if (match2.Success)
+                foreach (Match match2 in matches2)
                 {
-                    FileInfo file2 = new("none");
-                    try
+                    if (match2.Success)
                     {
-                        file2 = dir.GetFiles(match2.Groups[1].Value + ".shader", SearchOption.AllDirectories)[0];
+                        FileInfo file2 = new("none");
+                        try
+                        {
+                            file2 = dir.GetFiles(match2.Groups[1].Value + ".shader", SearchOption.AllDirectories)[0];
+                        }
+                        catch
+                        { }
+                        if (file2.Name != "none")
+                            files.Add(file2);
                     }
-                    catch
-                    { }
-                    if (file2.Name != "none")
-                        files.Add(file2);
                 }
             }
             content = shaderMod(content);
